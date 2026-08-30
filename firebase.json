@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "site": "surya-delivery",
+    "source": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}

@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  DELIVERY_PARTNER
+  HUB_MANAGER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum ShipmentStatus {
+  ORDER_PLACED
+  PICKUP_SCHEDULED
+  PICKUP_ASSIGNED
+  PICKED_UP
+  ARRIVED_AT_ORIGIN_HUB
+  IN_TRANSIT
+  ARRIVED_AT_DESTINATION_HUB
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED_DELIVERY
+  RETURN_REQUESTED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  phone     String?
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  shipmentsSent     Shipment[] @relation("Sender")
+  shipmentsReceived Shipment[] @relation("Receiver")
+  trackingUpdates   TrackingHistory[]
+  complaints        Complaint[]
+  notifications     Notification[]
+}
+
+model Hub {
+  id        String   @id @default(cuid())
+  name      String
+  city      String
+  state     String
+  pinCode   String
+  createdAt DateTime @default(now())
+  
+  // Relations
+  originShipments      Shipment[] @relation("OriginHub")
+  destinationShipments Shipment[] @relation("DestinationHub")
+  currentShipments     Shipment[] @relation("CurrentHub")
+  vehicles             Vehicle[]
+  routesOrigin         Route[] @relation("RouteOrigin")
+  routesDestination    Route[] @relation("RouteDestination")
+}
+
+model Shipment {
+  id                   String   @id @default(cuid())
+  trackingId           String   @unique // e.g., SD2026BLR00001258
+  
+  senderId             String
+  sender               User     @relation("Sender", fields: [senderId], references: [id])
+  
+  receiverId           String?
+  receiver             User?    @relation("Receiver", fields: [receiverId], references: [id])
+  
+  originHubId          String?
+  originHub            Hub?     @relation("OriginHub", fields: [originHubId], references: [id])
+  
+  destinationHubId     String?
+  destinationHub       Hub?     @relation("DestinationHub", fields: [destinationHubId], references: [id])
+  
+  currentHubId         String?
+  currentHub           Hub?     @relation("CurrentHub", fields: [currentHubId], references: [id])
+  
+  status               ShipmentStatus @default(ORDER_PLACED)
+  
+  // Package Details
+  packageCategory      String
+  packageName          String
+  weight               Float
+  length               Float
+  width                Float
+  height               Float
+  quantity             Int
+  declaredValue        Float
+  
+  // Delivery Details
+  deliveryType         String   // Standard, Express, Same Day
+  expectedDeliveryDate DateTime?
+  
+  // Addresses (Simple version, using JSON or just basic string representation for now, or separate Address model as in plan)
+  pickupAddressId      String
+  pickupAddress        Address  @relation("PickupAddress", fields: [pickupAddressId], references: [id])
+  
+  deliveryAddressId    String
+  deliveryAddress      Address  @relation("DeliveryAddress", fields: [deliveryAddressId], references: [id])
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  // Relations
+  trackingHistory      TrackingHistory[]
+  payment              Payment?
+  complaints           Complaint[]
+  returnRequest        ReturnRequest?
+}
+
+model TrackingHistory {
+  id          String   @id @default(cuid())
+  shipmentId  String
+  shipment    Shipment @relation(fields: [shipmentId], references: [id])
+  status      ShipmentStatus
+  location    String
+  timestamp   DateTime @default(now())
+  
+  updatedById String?
+  updatedBy   User?    @relation(fields: [updatedById], references: [id])
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  name      String
+  mobile    String
+  address   String
+  area      String
+  city      String
+  state     String
+  pinCode   String
+  
+  pickupShipments   Shipment[] @relation("PickupAddress")
+  deliveryShipments Shipment[] @relation("DeliveryAddress")
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  shipmentId    String   @unique
+  shipment      Shipment @relation(fields: [shipmentId], references: [id])
+  amount        Float
+  tax           Float
+  status        String   // PENDING, SUCCESS, FAILED
+  method        String   // UPI, CARD, NETBANKING
+  transactionId String?
+  createdAt     DateTime @default(now())
+}
+
+model Vehicle {
+  id        String   @id @default(cuid())
+  type      String   // TRUCK, VAN, BIKE
+  plate     String   @unique
+  capacity  Float    // Max weight in kg
+  hubId     String?
+  hub       Hub?     @relation(fields: [hubId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Route {
+  id             String   @id @default(cuid())
+  originHubId    String
+  originHub      Hub      @relation("RouteOrigin", fields: [originHubId], references: [id])
+  destinationHubId String
+  destinationHub Hub      @relation("RouteDestination", fields: [destinationHubId], references: [id])
+  distance       Float    // in km
+  estimatedTime  Float    // in hours
+}
+
+model Complaint {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  shipmentId  String?
+  shipment    Shipment? @relation(fields: [shipmentId], references: [id])
+  subject     String
+  description String
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model ContactRequest {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    String   @default("UNREAD") // UNREAD, READ, RESOLVED
+  createdAt DateTime @default(now())
+}
+
+model ReturnRequest {
+  id          String   @id @default(cuid())
+  shipmentId  String   @unique
+  shipment    Shipment @relation(fields: [shipmentId], references: [id])
+  reason      String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED, COMPLETED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
