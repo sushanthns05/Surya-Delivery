@@ -44,6 +44,15 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
+      // Execute reCAPTCHA
+      if (typeof (window as any).grecaptcha !== "undefined") {
+        (window as any).grecaptcha.enterprise.ready(async () => {
+          const token = await (window as any).grecaptcha.enterprise.execute(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY, {action: 'SIGNUP'});
+          // Here you would typically send the token to your backend for verification
+          // console.log("reCAPTCHA token:", token);
+        });
+      }
+
       // 1. Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;

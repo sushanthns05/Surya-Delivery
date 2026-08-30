@@ -23,6 +23,15 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      // Execute reCAPTCHA
+      if (typeof (window as any).grecaptcha !== "undefined") {
+        (window as any).grecaptcha.enterprise.ready(async () => {
+          const token = await (window as any).grecaptcha.enterprise.execute(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY, {action: 'LOGIN'});
+          // Here you would typically send the token to your backend for verification
+          // console.log("reCAPTCHA token:", token);
+        });
+      }
+
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
       // Check if email is verified
