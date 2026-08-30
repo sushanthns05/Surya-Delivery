@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, name, phone } = body;
+    const { email, name, phone, isOAuth } = body;
 
     if (!email || !name) {
       return NextResponse.json(
@@ -21,6 +21,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingUser) {
+      if (isOAuth) {
+        // If logging in via OAuth, it's fine if the user already exists.
+        return NextResponse.json({ success: true, user: { id: existingUser.id, email: existingUser.email, name: existingUser.name, role: existingUser.role } });
+      }
       return NextResponse.json(
         { error: 'User already exists' },
         { status: 400 }
